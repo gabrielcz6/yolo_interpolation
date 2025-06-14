@@ -1,0 +1,144 @@
+# requirements.txt
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+scipy>=1.10.0
+Pillow>=9.5.0
+PyYAML>=6.0
+torch>=2.0.0
+torchvision>=0.15.0
+
+# setup.sh (Linux/Mac)
+#!/bin/bash
+
+echo "Instalando Sistema de Conteo de Personas..."
+
+# Crear entorno virtual
+python3 -m venv venv
+source venv/bin/activate
+
+# Actualizar pip
+pip install --upgrade pip
+
+# Instalar dependencias
+pip install -r requirements.txt
+
+# Descargar modelo YOLOv8n si no existe
+python3 -c "
+from ultralytics import YOLO
+import os
+if not os.path.exists('yolov8n.pt'):
+    print('Descargando modelo YOLOv8n...')
+    model = YOLO('yolov8n.pt')
+    print('Modelo descargado!')
+else:
+    print('Modelo YOLOv8n ya existe.')
+"
+
+echo "¡Instalación completada!"
+echo "Para ejecutar:"
+echo "source venv/bin/activate"
+echo "python people_counter_hybrid.py"
+
+# setup.bat (Windows)
+@echo off
+echo Instalando Sistema de Conteo de Personas...
+
+REM Crear entorno virtual
+python -m venv venv
+call venv\Scripts\activate.bat
+
+REM Actualizar pip
+python -m pip install --upgrade pip
+
+REM Instalar dependencias
+pip install -r requirements.txt
+
+REM Descargar modelo YOLOv8n
+python -c "from ultralytics import YOLO; import os; YOLO('yolov8n.pt') if not os.path.exists('yolov8n.pt') else print('Modelo ya existe')"
+
+echo ¡Instalación completada!
+echo Para ejecutar:
+echo call venv\Scripts\activate.bat
+echo python people_counter_hybrid.py
+
+# config_ejemplo.json
+{
+    "ffmpeg": {
+        "input_source": "rtmp://localhost/live/stream",
+        "segment_duration": 15,
+        "video_format": "mp4", 
+        "resolution": "1280x720",
+        "fps": 30
+    },
+    "detection": {
+        "model_path": "yolov8n.pt",
+        "confidence": 0.5,
+        "tracker": "bytetrack.yaml",
+        "classes": [0]
+    },
+    "roi": {
+        "x1": 100,
+        "y1": 100,
+        "x2": 1180, 
+        "y2": 620
+    },
+    "counting": {
+        "line_position": 0.5,
+        "direction_threshold": 20,
+        "tracking_history": 30
+    },
+    "paths": {
+        "videos_dir": "./videos",
+        "output_dir": "./output",
+        "logs_dir": "./logs"
+    }
+}
+
+# run_demo.py - Script para probar con webcam
+#!/usr/bin/env python3
+
+import subprocess
+import sys
+import os
+
+def run_demo():
+    """Ejecutar demo con webcam"""
+    
+    print("=== DEMO: Sistema de Conteo de Personas ===")
+    print("Este demo usará tu webcam para probar el sistema")
+    print("Presiona Ctrl+C para detener")
+    print()
+    
+    # Verificar si FFmpeg está instalado
+    try:
+        subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True)
+        print("✓ FFmpeg encontrado")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("✗ FFmpeg no encontrado. Por favor instálalo:")
+        print("Ubuntu/Debian: sudo apt install ffmpeg")
+        print("macOS: brew install ffmpeg") 
+        print("Windows: Descargar desde https://ffmpeg.org/")
+        return
+    
+    # Verificar dependencias Python
+    try:
+        import cv2
+        import ultralytics
+        print("✓ Dependencias Python encontradas")
+    except ImportError as e:
+        print(f"✗ Falta dependencia: {e}")
+        print("Ejecuta: pip install -r requirements.txt")
+        return
+    
+    # Ejecutar demo
+    try:
+        cmd = [sys.executable, "people_counter_hybrid.py", "--demo"]
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        print("\nDemo detenido por el usuario")
+    except Exception as e:
+        print(f"Error ejecutando demo: {e}")
+
+if __name__ == "__main__":
+    run_demo()

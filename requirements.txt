@@ -1,0 +1,24 @@
+# Dependencias para el Sistema de Conteo de Personas
+
+# Visión por computadora y detección
+opencv-python>=4.5.0
+ultralytics>=8.0.0
+
+# Procesamiento numérico
+numpy>=1.21.0
+scipy>=1.7.0
+
+# Manejo de configuración
+pathlib
+
+# Notas de instalación:
+# 1. FFmpeg debe estar instalado en el sistema:
+#    - Ubuntu/Debian: sudo apt update && sudo apt install ffmpeg
+#    - Windows: Descargar desde https://ffmpeg.org/download.html
+#    - macOS: brew install ffmpeg
+#
+# 2. Para usar GPU con YOLO (opcional):
+#    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# 3. Instalación completa:
+#    pip install -r requirements.txt

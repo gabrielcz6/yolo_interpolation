@@ -1,0 +1,42 @@
+{
+    "image": {
+        "rotation": 180
+    },
+    "ffmpeg": {
+        "input_source": "rtsp://admin:usuario1234@192.168.18.13:554/Streaming/channels/101?tcp",
+        "segment_duration": 15,
+        "video_format": "mp4",
+        "resolution": "1280x720",
+        "fps": 30
+    },
+    "detection": {
+        "model_path": "yolo11n.onnx",
+        "confidence": 0.5,
+        "classes": [
+            0
+        ],
+        "device": "cpu",
+         "frame_skip": 3, 
+         "interpolation": "True"
+    },
+    "roi": {
+        "x1": 183,
+        "y1": 117,
+        "x2": 796,
+        "y2": 694
+    },
+    "counting": {
+        "line_position": 0.5,
+        "direction_threshold": 10,
+        "tracking_history": 30
+    },
+    "tracking": {
+        "max_disappeared": 20,
+        "max_distance": 80
+    },
+    "paths": {
+        "videos_dir": "./videos",
+        "output_dir": "./output",
+        "logs_dir": "./logs"
+    }
+}

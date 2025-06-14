@@ -1,0 +1,8 @@
+logs
+videos
+__pycache__
+.venv
+yolo11n.onxx
+yolo11n.pt
+yolov8n.onnx
+yolov8n.pt
