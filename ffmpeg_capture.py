@@ -59,7 +59,7 @@ class FFmpegCapture:
                         '-y',
                         '-loglevel', 'error',
                         '-rtsp_transport', 'tcp',
-                        '-rtbufsize', '100M',
+                        '-rtbufsize', '400M',
                         '-i', self.config['ffmpeg']['input_source'],
                         '-c:v', 'libx264',
                         '-preset', 'ultrafast',

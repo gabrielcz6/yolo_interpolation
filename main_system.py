@@ -86,7 +86,7 @@ class PeopleCounterSystem:
         """Ejecutar sistema principal"""
         try:
             self.print_system_info()
-            
+             
             if not self.test_system_components():
                 print("❌ Error en la inicialización. Revise la configuración.")
                 return

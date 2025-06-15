@@ -4,7 +4,7 @@
     },
     "ffmpeg": {
         "input_source": "rtsp://admin:usuario1234@192.168.18.13:554/Streaming/channels/101?tcp",
-        "segment_duration": 15,
+        "segment_duration": 10,
         "video_format": "mp4",
         "resolution": "1280x720",
         "fps": 30
@@ -16,13 +16,13 @@
             0
         ],
         "device": "cpu",
-         "frame_skip": 3, 
-         "interpolation": "True"
+        "frame_skip": 3,
+        "interpolation": "True"
     },
     "roi": {
-        "x1": 183,
-        "y1": 117,
-        "x2": 796,
+        "x1": 233,
+        "y1": 149,
+        "x2": 689,
         "y2": 694
     },
     "counting": {
