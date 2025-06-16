@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Sistema Principal de Conteo de Personas con YOLOv8 + SORT + Watchdog
-Versión con procesamiento basado en archivos más antiguos (sin colas)
+Sistema Principal de Conteo de Personas con YOLOv8 + SORT
+Versión Modular
 
 Ejecución:
-    python main_system.py [config_file]
+    python main.py [config_file]
 """
 
 import sys
@@ -23,7 +23,7 @@ from logger_manager import LoggerManager
 class PeopleCounterSystem:
     def __init__(self, config_file="config.json"):
         """Inicializar sistema principal"""
-        print("🚀 Inicializando Sistema de Conteo de Personas con Watchdog...")
+        print("🚀 Inicializando Sistema de Conteo de Personas...")
         
         # Cargar configuración
         self.config_manager = ConfigManager(config_file)
@@ -61,9 +61,6 @@ class PeopleCounterSystem:
         print(f"⚡ Dispositivo: {self.config['detection']['device']}")
         print(f"🔄 Rotación: {self.config['image']['rotation']}°")
         print(f"📏 Línea de conteo: {self.config['counting']['line_position']*100}% de altura ROI")
-        print(f"🐕 Watchdog - Límite archivo: {self.config['watchdog']['file_age_limit']}s")
-        print(f"🐕 Watchdog - Intervalo: {self.config['watchdog']['check_interval']}s")
-        print(f"⏰ Antigüedad mínima para procesar: 30 segundos")
         print("="*60)
         
     def test_system_components(self):
@@ -89,69 +86,56 @@ class PeopleCounterSystem:
         """Ejecutar sistema principal"""
         try:
             self.print_system_info()
-             
+            
             if not self.test_system_components():
                 print("❌ Error en la inicialización. Revise la configuración.")
                 return
                 
-            print("\n🎬 INICIANDO SISTEMA DE CONTEO CON WATCHDOG...")
+            print("\n🎬 INICIANDO SISTEMA DE CONTEO...")
             print("❌ Presiona Ctrl+C para salir")
-            print("📝 Procesando videos con 30+ segundos de antigüedad")
             
-            # Iniciar captura FFmpeg con watchdog
-            if not self.ffmpeg_capture.start_capture():
-                print("❌ Error iniciando captura")
-                return
-                
+            # Iniciar captura FFmpeg
+            self.ffmpeg_capture.start_capture()
             self.running = True
             
             start_time = time.time()
             cleanup_counter = 0
             last_status_time = time.time()
-            last_processing_time = time.time()
-            
-            print("\n⏳ Esperando videos para procesar...")
             
             while self.running:
                 try:
-                    current_time = time.time()
-                    
-                    # Buscar video más antiguo para procesar cada 10 segundos
-                    if current_time - last_processing_time >= 10:
-                        video_path = self.ffmpeg_capture.get_next_video()
+                    # Procesar videos en cola
+                    video_path = self.ffmpeg_capture.get_next_video()
+                    if video_path:
+                        print(f"\n📹 Procesando nuevo segmento...")
                         
-                        if video_path:
-                            print(f"\n📹 Procesando video más antiguo: {video_path}")
-                            
-                            try:
-                                success = self.video_processor.process_video(video_path)
-                                if success:
-                                    self.session_data['videos_processed'] += 1
-                                    print(f"✅ Video procesado exitosamente")
-                                else:
-                                    error_info = {
-                                        'type': 'ProcessingError',
-                                        'message': 'Error procesando video',
-                                        'video_path': video_path,
-                                        'context': 'video_processing'
-                                    }
-                                    self.session_data['errors'].append(error_info)
-                                    self.logger.save_error_log(error_info)
-                                    
-                            except Exception as e:
+                        try:
+                            success = self.video_processor.process_video(video_path)
+                            if success:
+                                self.session_data['videos_processed'] += 1
+                            else:
                                 error_info = {
-                                    'type': type(e).__name__,
-                                    'message': str(e),
+                                    'type': 'ProcessingError',
+                                    'message': 'Error procesando video',
                                     'video_path': video_path,
-                                    'context': 'video_processing_exception'
+                                    'context': 'video_processing'
                                 }
                                 self.session_data['errors'].append(error_info)
                                 self.logger.save_error_log(error_info)
-                                print(f"❌ Error procesando {video_path}: {e}")
-                        
-                        last_processing_time = current_time
-                    
+                                
+                        except Exception as e:
+                            error_info = {
+                                'type': type(e).__name__,
+                                'message': str(e),
+                                'video_path': video_path,
+                                'context': 'video_processing_exception'
+                            }
+                            self.session_data['errors'].append(error_info)
+                            self.logger.save_error_log(error_info)
+                            print(f"❌ Error procesando {video_path}: {e}")
+                            
                     # Mostrar estado del sistema cada 30 segundos
+                    current_time = time.time()
                     if current_time - last_status_time >= 30:
                         self._show_system_status()
                         last_status_time = current_time
@@ -187,28 +171,23 @@ class PeopleCounterSystem:
     def _show_system_status(self):
         """Mostrar estado actual del sistema"""
         counts = self.people_tracker.get_counts()
-        processable_videos = self.ffmpeg_capture.get_queue_size()
+        queue_size = self.ffmpeg_capture.get_queue_size()
         
         print(f"\n📊 ESTADO DEL SISTEMA:")
         print(f"   🟢 Entradas: {counts['entries']}")
         print(f"   🔴 Salidas: {counts['exits']}")
         print(f"   👥 Ocupación: {counts['occupancy']}")
-        print(f"   📹 Videos procesables: {processable_videos}")
+        print(f"   📹 Videos en cola: {queue_size}")
         print(f"   🎬 Videos procesados: {self.session_data['videos_processed']}")
         print(f"   ⚠️ Errores: {len(self.session_data['errors'])}")
-        print(f"   🐕 Watchdog: Activo")
-
-
-    
-       
-           
+        
     def _shutdown_system(self):
         """Cerrar sistema de forma ordenada"""
         print("\n🛑 CERRANDO SISTEMA...")
         
         self.running = False
         
-        # Detener captura FFmpeg y watchdog
+        # Detener captura FFmpeg
         self.ffmpeg_capture.stop()
         
         # Guardar datos de sesión

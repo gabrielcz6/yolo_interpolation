@@ -14,7 +14,31 @@ class VideoProcessor:
         self.config = config
         self.detection_engine = detection_engine
         self.people_tracker = people_tracker
-        
+    def _remove_from_watchdog_log(self, video_path):
+        """Eliminar entrada del log del watchdog cuando se procesa un archivo"""
+        try:
+            filename = os.path.basename(video_path)
+            watchdog_log = os.path.join(self.config["paths"]["videos_dir"], "watchdog_log.txt")
+            
+            if not os.path.exists(watchdog_log):
+                return
+            
+            # Leer líneas actuales
+            with open(watchdog_log, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            
+            # Filtrar líneas (eliminar la que contenga este filename)
+            filtered_lines = [line for line in lines if not line.startswith(filename + "|")]
+            
+            # Reescribir archivo
+            with open(watchdog_log, "w", encoding="utf-8") as f:
+                f.writelines(filtered_lines)
+                
+            print(f"📝 Entrada eliminada del log watchdog: {filename}")
+            
+        except Exception as e:
+            print(f"⚠️ Error eliminando del log: {e}")
+
     def process_video(self, video_path):
         """Procesar un video específico"""
         print(f"📹 Procesando: {video_path}")
@@ -22,7 +46,18 @@ class VideoProcessor:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             print(f"❌ Error: No se pudo abrir {video_path}")
-            return False
+            print(f"🗑️ Eliminando archivo corrupto...")
+            try:
+              os.remove(video_path)
+              print(f"🗑️ Video original eliminado: {video_path}")
+    
+    # Eliminar entrada del log del watchdog
+              self._remove_from_watchdog_log(video_path)
+    
+            except Exception as e:
+                print(f"⚠️ Error eliminando video: {e}")
+                
+            return True
             
         
         

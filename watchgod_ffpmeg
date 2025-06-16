@@ -1,0 +1,296 @@
+import subprocess
+import os
+import time
+import threading
+import glob
+from datetime import datetime, timedelta
+import signal
+import sys
+
+class FFmpegWatchdog:
+    def __init__(self, rtsp_url, output_folder, check_interval=5):
+        self.rtsp_url = rtsp_url
+        self.output_folder = output_folder
+        self.check_interval = check_interval
+        self.process = None
+        self.running = False
+        self.watchdog_thread = None
+        self.monitor_thread = None
+        self.log_file = os.path.join(output_folder, "files_log.txt")
+        
+        # Crear carpeta de salida si no existe
+        os.makedirs(output_folder, exist_ok=True)
+        
+    def get_current_timestamp(self):
+        """Genera timestamp para el nombre del archivo"""
+        return datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    def log_file_created(self, filename):
+        """Registra un archivo creado en el log"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = f"{filename}|{timestamp}\n"
+        
+        try:
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(log_entry)
+            print(f"Registrado: {filename}")
+        except Exception as e:
+            print(f"Error escribiendo log: {e}")
+    
+    def get_last_logged_file(self):
+        """Obtiene la última entrada del log"""
+        try:
+            if not os.path.exists(self.log_file):
+                return None, None
+                
+            with open(self.log_file, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            
+            if not lines:
+                return None, None
+            
+            # Obtener última línea no vacía
+            for line in reversed(lines):
+                line = line.strip()
+                if line and "|" in line:
+                    parts = line.split("|")
+                    if len(parts) == 2:
+                        filename = parts[0]
+                        timestamp_str = parts[1]
+                        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                        return filename, timestamp
+            
+            return None, None
+            
+        except Exception as e:
+            print(f"Error leyendo log: {e}")
+            return None, None
+    
+    def is_last_file_too_old(self):
+        """Verifica si el último archivo registrado es muy antiguo"""
+        filename, file_timestamp = self.get_last_logged_file()
+        
+        if not file_timestamp:
+            # Si no hay archivos registrados, verificar si el proceso acaba de iniciar
+            if hasattr(self, 'process_start_time'):
+                time_since_start = datetime.now() - self.process_start_time
+                # Dar 60 segundos de gracia al inicio para que aparezca el primer archivo
+                return time_since_start.total_seconds() > 60
+            return False  # Primera ejecución, no reiniciar aún
+        
+        current_time = datetime.now()
+        time_diff = current_time - file_timestamp
+        
+        return time_diff.total_seconds() > 45  # 45 segundos de límite
+    
+    def monitor_output_folder(self):
+        """Monitorea la carpeta de salida para detectar nuevos archivos"""
+        processed_files = set()
+        
+        while self.running:
+            try:
+                # Buscar archivos mp4 en la carpeta
+                pattern = os.path.join(self.output_folder, "*.mp4")
+                current_files = set(glob.glob(pattern))
+                
+                # Detectar archivos nuevos
+                new_files = current_files - processed_files
+                
+                for filepath in new_files:
+                    filename = os.path.basename(filepath)
+                    # Verificar que el archivo no se esté escribiendo actualmente
+                    # (esperamos un segundo y verificamos si cambió de tamaño)
+                    try:
+                        size1 = os.path.getsize(filepath)
+                        time.sleep(1)
+                        size2 = os.path.getsize(filepath)
+                        
+                        # Si el tamaño no cambió, el archivo está completo
+                        if size1 == size2:
+                            self.log_file_created(filename)
+                            processed_files.add(filepath)
+                    except:
+                        # Si hay error accediendo al archivo, probablemente se está escribiendo
+                        continue
+                
+                time.sleep(2)  # Verificar cada 2 segundos
+                
+            except Exception as e:
+                print(f"Error monitoreando carpeta: {e}")
+                time.sleep(2)
+    
+    def start_ffmpeg(self):
+        """Inicia el proceso de ffmpeg"""
+        timestamp = self.get_current_timestamp()
+        base_filename = f"{timestamp}_%d.mp4"
+        
+        cmd = [
+            'ffmpeg',
+            '-y',
+            '-loglevel', 'error',
+            '-rtsp_transport', 'tcp',
+            '-rtbufsize', '400M',
+            '-timeout', '30000000',
+            '-i', self.rtsp_url,
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-s', '1280x720',
+            '-r', '30',
+            '-avoid_negative_ts', 'make_zero',
+            '-f', 'segment',
+            '-segment_time', '10',
+            '-segment_format', 'mp4',
+            '-reset_timestamps', '1',
+            '-segment_start_number', '0',
+            os.path.join(self.output_folder, base_filename)
+        ]
+        
+        print(f"Iniciando FFmpeg con patrón: {base_filename}")
+        
+        try:
+            self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.process_start_time = datetime.now()  # Marcar tiempo de inicio
+            return True
+        except Exception as e:
+            print(f"Error iniciando FFmpeg: {e}")
+            return False
+    
+    def kill_ffmpeg(self):
+        """Mata el proceso de ffmpeg"""
+        if self.process:
+            try:
+                self.process.terminate()
+                # Esperar un poco para terminación graceful
+                try:
+                    self.process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    # Forzar terminación si no responde
+                    self.process.kill()
+                    self.process.wait()
+                print("Proceso FFmpeg terminado")
+            except Exception as e:
+                print(f"Error terminando FFmpeg: {e}")
+            finally:
+                self.process = None
+    
+    def watchdog_loop(self):
+        """Loop del watchdog que verifica la antigüedad según el log"""
+        # Esperar 15 segundos antes de empezar a verificar para dar tiempo al proceso
+        print("Esperando 15 segundos antes de iniciar verificaciones...")
+        time.sleep(15)
+        
+        while self.running:
+            try:
+                if self.is_last_file_too_old():
+                    filename, timestamp = self.get_last_logged_file()
+                    if timestamp:
+                        time_diff = datetime.now() - timestamp
+                        print(f"Último archivo muy antiguo: {filename} ({int(time_diff.total_seconds())}s)")
+                    else:
+                        if hasattr(self, 'process_start_time'):
+                            time_since_start = datetime.now() - self.process_start_time
+                            print(f"Sin archivos después de {int(time_since_start.total_seconds())}s desde inicio")
+                        else:
+                            print("No hay archivos registrados en el log")
+                    
+                    print("Reiniciando FFmpeg...")
+                    self.restart_ffmpeg()
+                else:
+                    filename, timestamp = self.get_last_logged_file()
+                    if filename and timestamp:
+                        time_diff = datetime.now() - timestamp
+                        print(f"Último archivo OK: {filename} ({int(time_diff.total_seconds())}s)")
+                    else:
+                        print("Esperando primer archivo...")
+                
+                time.sleep(self.check_interval)
+                
+            except Exception as e:
+                print(f"Error en watchdog: {e}")
+                time.sleep(self.check_interval)
+    
+    def restart_ffmpeg(self):
+        """Reinicia el proceso de ffmpeg"""
+        print("Reiniciando FFmpeg...")
+        self.kill_ffmpeg()
+        time.sleep(2)  # Esperar un poco antes de reiniciar
+        
+        if not self.start_ffmpeg():
+            print("Error reiniciando FFmpeg")
+            return False
+        
+        print("FFmpeg reiniciado exitosamente")
+        return True
+    
+    def start(self):
+        """Inicia el proceso completo"""
+        print("Iniciando FFmpeg Watchdog...")
+        print(f"Log de archivos: {self.log_file}")
+        print(f"Límite de antigüedad: 45 segundos")
+        
+        # Iniciar FFmpeg
+        if not self.start_ffmpeg():
+            print("Error iniciando FFmpeg")
+            return False
+        
+        # Iniciar monitor de carpeta
+        self.running = True
+        self.monitor_thread = threading.Thread(target=self.monitor_output_folder)
+        self.monitor_thread.daemon = True
+        self.monitor_thread.start()
+        
+        # Iniciar watchdog
+        self.watchdog_thread = threading.Thread(target=self.watchdog_loop)
+        self.watchdog_thread.daemon = True
+        self.watchdog_thread.start()
+        
+        print("Watchdog iniciado. Presiona Ctrl+C para detener.")
+        
+        # Mantener el programa ejecutándose
+        try:
+            while self.running:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nDeteniendo...")
+            self.stop()
+        
+        return True
+    
+    def stop(self):
+        """Detiene el proceso completo"""
+        print("Deteniendo watchdog...")
+        self.running = False
+        
+        if self.watchdog_thread:
+            self.watchdog_thread.join(timeout=5)
+        
+        if self.monitor_thread:
+            self.monitor_thread.join(timeout=5)
+        
+        self.kill_ffmpeg()
+        print("Watchdog detenido")
+
+def signal_handler(sig, frame):
+    """Manejador de señales para terminación limpia"""
+    print("\nSeñal de terminación recibida")
+    sys.exit(0)
+
+if __name__ == "__main__":
+    # Configuración
+    RTSP_URL = "rtsp://admin:usuario1234@192.168.18.13:554/Streaming/channels/101?tcp"  # Reemplaza con tu URL RTSP
+    OUTPUT_FOLDER = "./recordings"   # Carpeta donde guardar los archivos
+    CHECK_INTERVAL = 5               # Intervalo de verificación en segundos
+    
+    # Configurar manejador de señales
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Crear y ejecutar el watchdog
+    watchdog = FFmpegWatchdog(RTSP_URL, OUTPUT_FOLDER, CHECK_INTERVAL)
+    
+    try:
+        watchdog.start()
+    except Exception as e:
+        print(f"Error ejecutando watchdog: {e}")
+    finally:
+        watchdog.stop()
