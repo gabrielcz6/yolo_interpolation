@@ -88,7 +88,7 @@ class VideoProcessor:
                 cropped_frame = self.detection_engine.crop_frame(frame)
                 
                 # Decidir si ejecutar detección o interpolar
-                should_detect = (frame_counter % self.config["detection"]["frame_skip"] == 1) or not self.config["detection"]["interpolation"]
+                should_detect = (frame_counter % self.config["detection"]["frame_skip"] == 0) or not self.config["detection"]["interpolation"]
                 
                 if should_detect:
                     # Ejecutar YOLO completo
@@ -196,11 +196,11 @@ class VideoProcessor:
             x1, y1, x2, y2, conf = detection
             
             # Bounding box
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+          #  cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
             
             # Confianza
             label = f"Person ({conf:.2f})"
-            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+       #     cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
         
         # Dibujar objetos trackeados con IDs
         for object_id, centroid in tracked_objects.items():

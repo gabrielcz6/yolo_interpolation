@@ -16,10 +16,10 @@
     },
     "detection": {
         "model_path": "yolo11n.onnx",
-        "confidence": 0.5,
+        "confidence": 0.3,
         "classes": [0],
         "device": "cpu",
-        "frame_skip": 3,
+        "frame_skip": 2,
         "interpolation": "True"
     },
     "roi": {
@@ -30,12 +30,12 @@
     },
     "counting": {
         "line_position": 0.5,
-        "direction_threshold": 10,
+        "direction_threshold": 5,
         "tracking_history": 30
     },
     "tracking": {
-        "max_disappeared": 20,
-        "max_distance": 80
+        "max_disappeared": 30,
+        "max_distance": 120
     },
     "paths": {
         "videos_dir": "./videos",
