@@ -170,58 +170,78 @@ class VideoProcessor:
          return interpolated
         
     def _draw_annotations(self, frame, detections, tracked_objects):
-        """Dibujar anotaciones en el frame"""
-        # Obtener coordenadas de línea
-        line_x1, line_y, line_x2, _ = self.people_tracker.get_line_coordinates()
-        
-        # Dibujar línea de conteo
-        cv2.line(frame, (line_x1, line_y), (line_x2, line_y), (0, 255, 0), 3)
-        cv2.putText(frame, "COUNTING LINE", (line_x1 + 10, line_y - 10), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        
-        # Dibujar detecciones
-        for detection in detections:
-            x1, y1, x2, y2, conf = detection
-            
-            # Bounding box
-          #  cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-            
-            # Confianza
-            label = f"Person ({conf:.2f})"
-       #     cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-        
-        # Dibujar objetos trackeados con IDs
-        for object_id, centroid in tracked_objects.items():
-            center_x, center_y = centroid
-            
-            # Centro con ID
-            cv2.circle(frame, (center_x, center_y), 8, (0, 0, 255), -1)
-            cv2.putText(frame, f"ID:{object_id}", (center_x + 10, center_y), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-            
-            # Dibujar trayectoria si existe
-            # Mostrar zona actual del objeto
-            obj_status = self.people_tracker.get_object_history(object_id)
-            if obj_status:
-                zone_color = (0, 255, 255) if obj_status['last_zone'] == 'above' else (255, 255, 0)
-                cv2.putText(frame, obj_status['last_zone'], (center_x - 20, center_y - 20), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, zone_color, 1)
-        
-        # Contadores con mejor estilo
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (10, 10), (350, 120), (0, 0, 0), -1)
-        cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
-        
-        counts = self.people_tracker.get_counts()
-        cv2.putText(frame, f"ENTRADAS: {counts['entries']}", (20, 40), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        cv2.putText(frame, f"SALIDAS: {counts['exits']}", (20, 70), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-        cv2.putText(frame, f"OCUPACION: {counts['occupancy']}", (20, 100), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2)
-        
-        # Info de tracking
-        cv2.putText(frame, f"Tracked: {len(tracked_objects)}", (250, 40), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-        
-        return frame
+         """Dibujar anotaciones en el frame"""
+         # Obtener coordenadas de línea y zona buffer
+         line_x1, line_y, line_x2, _ = self.people_tracker.get_line_coordinates()
+         buffer_x1, buffer_y1, buffer_x2, buffer_y2 = self.people_tracker.get_buffer_coordinates()
+         
+         # Dibujar zona buffer (área semitransparente)
+         #overlay = frame.copy()
+         #cv2.rectangle(overlay, (buffer_x1, buffer_y1), (buffer_x2, buffer_y2), (255, 255, 0), -1)
+         #cv2.addWeighted(overlay, 0.2, frame, 0.8, 0, frame)
+         
+         # Dibujar bordes de la zona buffer
+        # cv2.line(frame, (buffer_x1, buffer_y1), (buffer_x2, buffer_y1), (255, 255, 0), 2)
+        # cv2.line(frame, (buffer_x1, buffer_y2), (buffer_x2, buffer_y2), (255, 255, 0), 2)
+         
+         # Dibujar línea de conteo principal
+         cv2.line(frame, (line_x1, line_y), (line_x2, line_y), (0, 255, 0), 3)
+        # cv2.putText(frame, "COUNTING LINE", (line_x1 + 10, line_y - 10), 
+        #           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+         
+         # Etiquetas de zona buffer
+         #cv2.putText(frame, "BUFFER ZONE", (buffer_x1 + 10, buffer_y1 + 20), 
+          #          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+         
+         # Dibujar detecciones
+         for detection in detections:
+             x1, y1, x2, y2, conf = detection
+             
+             # Bounding box
+           #  cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+             
+             # Confianza
+         #    label = f"Person ({conf:.2f})"
+   #          cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+         
+         # Dibujar objetos trackeados con IDs
+         for object_id, centroid in tracked_objects.items():
+             center_x, center_y = centroid
+             
+             # Centro con ID
+             cv2.circle(frame, (center_x, center_y), 8, (0, 0, 255), -1)
+             cv2.putText(frame, f"ID:{object_id}", (center_x + 10, center_y), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+             
+             # Mostrar zona actual del objeto con colores diferentes
+             obj_status = self.people_tracker.get_object_history(object_id)
+             if obj_status:
+                 zone = obj_status['last_zone']
+                 if zone == 'above':
+                     zone_color = (0, 255, 255)  # Amarillo
+                 elif zone == 'below':
+                     zone_color = (255, 255, 0)  # Cian
+                 else:  # buffer
+                     zone_color = (128, 128, 128)  # Gris
+                     
+                 cv2.putText(frame, zone, (center_x - 20, center_y - 20), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, zone_color, 1)
+         
+         # Contadores con mejor estilo
+         overlay = frame.copy()
+         cv2.rectangle(overlay, (10, 10), (350, 120), (0, 0, 0), -1)
+         cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+         
+         counts = self.people_tracker.get_counts()
+         cv2.putText(frame, f"ENTRADAS: {counts['entries']}", (20, 40), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+         cv2.putText(frame, f"SALIDAS: {counts['exits']}", (20, 70), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+         cv2.putText(frame, f"OCUPACION: {counts['occupancy']}", (20, 100), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2)
+         
+         # Info de tracking
+         cv2.putText(frame, f"Tracked: {len(tracked_objects)}", (250, 40), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+         
+         return frame

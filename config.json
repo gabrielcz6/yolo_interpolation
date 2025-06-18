@@ -19,7 +19,7 @@
         "confidence": 0.3,
         "classes": [0],
         "device": "cpu",
-        "frame_skip": 3,
+        "frame_skip": 5,
         "interpolation": "True"
     },
     "roi": {
@@ -31,7 +31,8 @@
     "counting": {
         "line_position": 0.5,
         "direction_threshold": 5,
-        "tracking_history": 30
+        "tracking_history": 30,
+        "line_buffer": 20
     },
     "tracking": {
         "max_disappeared": 30,
