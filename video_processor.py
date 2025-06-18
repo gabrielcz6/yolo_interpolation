@@ -161,20 +161,8 @@ class VideoProcessor:
                  # Si está cerca, usar movimiento para interpolar
                  if abs(center_x - tracked_x) < 50 and abs(center_y - tracked_y) < 50:
                      # Obtener historial de movimiento
-                     obj_history = self.people_tracker.get_object_history(obj_id)
-                     if obj_history and len(obj_history['positions']) >= 2:
-                         # Calcular velocidad promedio
-                         recent_positions = obj_history['positions'][-3:]
-                         if len(recent_positions) >= 2:
-                             velocity_y = (recent_positions[-1] - recent_positions[-2]) / frame_skip
-                             
-                             # Interpolar nueva posición
-                             new_center_y = center_y + velocity_y
-                             new_y1 = int(new_center_y - (y2 - y1) // 2)
-                             new_y2 = int(new_center_y + (y2 - y1) // 2)
-                             
-                             interpolated.append((x1, new_y1, x2, new_y2, conf * 0.8))
-                             break
+                     interpolated.append(detection)
+                     break
              else:
                  # Si no hay tracking, usar detección original
                  interpolated.append(detection)
@@ -212,16 +200,12 @@ class VideoProcessor:
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             
             # Dibujar trayectoria si existe
-            obj_history = self.people_tracker.get_object_history(object_id)
-            if obj_history and len(obj_history['positions']) > 1:
-                # Convertir posiciones Y a coordenadas de frame
-                points = []
-                for pos_y in obj_history['positions'][-10:]:  # Últimas 10 posiciones
-                    points.append((center_x, int(pos_y)))
-                
-                # Dibujar línea de trayectoria
-                for i in range(len(points) - 1):
-                    cv2.line(frame, points[i], points[i + 1], (255, 255, 0), 2)
+            # Mostrar zona actual del objeto
+            obj_status = self.people_tracker.get_object_history(object_id)
+            if obj_status:
+                zone_color = (0, 255, 255) if obj_status['last_zone'] == 'above' else (255, 255, 0)
+                cv2.putText(frame, obj_status['last_zone'], (center_x - 20, center_y - 20), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, zone_color, 1)
         
         # Contadores con mejor estilo
         overlay = frame.copy()

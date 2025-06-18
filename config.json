@@ -19,7 +19,7 @@
         "confidence": 0.3,
         "classes": [0],
         "device": "cpu",
-        "frame_skip": 2,
+        "frame_skip": 3,
         "interpolation": "True"
     },
     "roi": {
