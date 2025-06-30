@@ -17,22 +17,30 @@
     "detection": {
         "model_path": "yolo11n.onnx",
         "confidence": 0.3,
-        "classes": [0],
+        "classes": [
+            0
+        ],
         "device": "cpu",
         "frame_skip": 5,
         "interpolation": "True"
     },
     "roi": {
-        "x1": 233,
-        "y1": 149,
-        "x2": 689,
-        "y2": 694
+        "x1": 198,
+        "y1": 155,
+        "x2": 781,
+        "y2": 678
     },
     "counting": {
+        "line_type": "angular",
+        "line_center_x": 489,
+        "line_center_y": 416,
+        "line_angle": 0,
+        "line_length": 300,
+        "line_buffer": 20,
+        "entry_inverted": false,
         "line_position": 0.5,
         "direction_threshold": 5,
-        "tracking_history": 30,
-        "line_buffer": 20
+        "tracking_history": 30
     },
     "tracking": {
         "max_disappeared": 30,
