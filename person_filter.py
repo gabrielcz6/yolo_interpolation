@@ -101,12 +101,29 @@ class PersonFilter:
             # Preprocesar imagen para el modelo
             processed_image = self._preprocess_image(person_roi)
             
+                        # Ejecutar inferencia
             # Ejecutar inferencia
-            prediction = self.session.run([self.output_name], {self.input_name: processed_image})[0]
+            outputs = self.session.run([self.output_name], {self.input_name: processed_image})
+            raw_logits = outputs[0]
             
-            # Interpretar resultado
-            # Asumiendo modelo binario: [prob_cliente, prob_staff]
-            staff_confidence = float(prediction[0][1])  # Probabilidad de ser personal
+            # Aplicar softmax manualmente
+            probs = self._softmax(raw_logits[0])  # [prob_personal_h, prob_personal_m, prob_seguridad]
+            
+            # Obtener índice con mayor probabilidad
+            pred_index = int(np.argmax(probs))
+            
+            # Obtener la máxima probabilidad
+            max_confidence = float(probs[pred_index])
+            
+            # Si cualquier clase supera el umbral → es personal de tienda
+            is_staff = max_confidence >= self.confidence_threshold
+            
+            # Para logging
+            class_names = ["Personal-H", "Personal-M", "Seguridad"]
+            detected_class = class_names[pred_index]
+            
+            # Para logging, mostrar la probabilidad de la clase predicha
+            staff_confidence = float(probs[pred_index])
             
             is_staff = staff_confidence >= self.confidence_threshold
             
@@ -176,7 +193,17 @@ class PersonFilter:
         except Exception as e:
             print(f"❌ Error preprocesando imagen: {e}")
             return None
+    def _softmax(self, logits):
+        """Aplicar softmax manualmente (sin torch)"""
+        try:
+            # Restar el máximo para estabilidad numérica
+            exp_logits = np.exp(logits - np.max(logits))
+            return exp_logits / np.sum(exp_logits)
+        except Exception as e:
+            print(f"❌ Error en softmax: {e}")
+            return logits  # Fallback
     
+
     def get_filter_stats(self):
         """Obtener estadísticas del filtro"""
         return {
