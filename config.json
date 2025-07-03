@@ -50,5 +50,13 @@
         "videos_dir": "./videos",
         "output_dir": "./output",
         "logs_dir": "./logs"
-    }
+    },
+    
+    "person_filter": {
+    "enabled": true,
+    "model_path": "person_filter.onnx",
+    "confidence_threshold": 0.7,
+    "input_size": [224, 224],
+    "device": "cpu"
+}
 }

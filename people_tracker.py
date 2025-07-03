@@ -8,6 +8,8 @@ import time
 import math
 import numpy as np
 from sort_tracker import SortTracker
+from person_filter import PersonFilter
+
 
 
 class PeopleTracker:
@@ -19,7 +21,7 @@ class PeopleTracker:
             max_distance=config["tracking"]["max_distance"]
         )
         self.reset_counters()
-        
+        self.person_filter = PersonFilter(config)
         # Configurar línea según tipo
         if config["counting"].get("line_type") == "angular":
             self.setup_angular_line()
@@ -174,7 +176,8 @@ class PeopleTracker:
         else:
             return "buffer"
             
-    def update_tracking_and_count(self, detections):
+    def update_tracking_and_count(self, detections, current_frame=None):
+
         """Actualizar tracking con lógica de zona (angular o horizontal)"""
         rects = [(x1, y1, x2, y2) for x1, y1, x2, y2, conf in detections]
         objects = self.tracker.update(rects)
@@ -218,14 +221,33 @@ class PeopleTracker:
                         entry_detected = (last_zone == "above" and current_zone == "below")
                         exit_detected = (last_zone == "below" and current_zone == "above")
                     
-                    # Incrementar contadores
-                    if entry_detected:
-                        self.entry_count += 1
-                        print(f"🟢 ENTRADA! ID: {object_id}, Total: {self.entry_count}")
-                    elif exit_detected:
-                        self.exit_count += 1
-                        print(f"🔴 SALIDA! ID: {object_id}, Total: {self.exit_count}")
+                    
+                    # DESPUÉS:
+                        if entry_detected:
+                           if current_frame is not None:
+                               is_staff, confidence = self.person_filter.is_store_staff(current_frame, center_x, center_y)
+                               if not is_staff:
+                                   self.entry_count += 1
+                                   print(f"🟢 ENTRADA! ID: {object_id}, Total: {self.entry_count}")
+                               else:
+                                   print(f"👔 PERSONAL DETECTADO - No contado (ID: {object_id}, conf: {confidence:.2f})")
+                           else:
+                               # Fallback si no hay frame disponible
+                               self.entry_count += 1
+                               print(f"🟢 ENTRADA! ID: {object_id}, Total: {self.entry_count}")
                 
+                        elif exit_detected:
+                               if current_frame is not None:
+                                   is_staff, confidence = self.person_filter.is_store_staff(current_frame, center_x, center_y)
+                                   if not is_staff:
+                                       self.exit_count += 1
+                                       print(f"🔴 SALIDA! ID: {object_id}, Total: {self.exit_count}")
+                                   else:
+                                       print(f"👔 PERSONAL DETECTADO - No contado (ID: {object_id}, conf: {confidence:.2f})")
+                               else:
+                                   # Fallback si no hay frame disponible
+                                   self.exit_count += 1
+                                   print(f"🔴 SALIDA! ID: {object_id}, Total: {self.exit_count}")
                 # Actualizar estado
                 obj_status['last_zone'] = current_zone
                 if current_zone != "buffer":

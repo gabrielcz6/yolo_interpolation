@@ -96,7 +96,7 @@ class VideoProcessor:
                     detections = self._interpolate_detections(last_detections, last_tracked_objects)
                 
                 # Actualizar tracking y contadores
-                tracked_objects = self.people_tracker.update_tracking_and_count(detections)
+                tracked_objects = self.people_tracker.update_tracking_and_count(detections, cropped_frame)
                 last_tracked_objects = tracked_objects.copy()
                 
                 # Crear frame anotado
